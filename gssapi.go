@@ -1,12 +1,12 @@
 package gosasl
 
 import (
+	"encoding/json"
+	"fmt"
+	"github.com/beltran/gssapi"
 	"log"
 	"os"
-	"fmt"
 	"sync"
-	"github.com/beltran/gssapi"
-	"encoding/json"
 )
 
 type GSSAPIContext struct {
@@ -17,20 +17,20 @@ type GSSAPIContext struct {
 
 	gssapi.Options
 
-	*gssapi.Lib    `json:"-"`
-	loadonce       sync.Once
+	*gssapi.Lib `json:"-"`
+	loadonce    sync.Once
 
 	// Service credentials loaded from keytab
-	credential 	   *gssapi.CredId
-	token		   []byte
-	continueNeeded		   bool
-	contextId			   *gssapi.CtxId	
-	reqFlags 		uint32
-	availFlags 		uint32
+	credential     *gssapi.CredId
+	token          []byte
+	continueNeeded bool
+	contextId      *gssapi.CtxId
+	reqFlags       uint32
+	availFlags     uint32
 }
 
-// 
-func NewGSSAPIContext() * GSSAPIContext {
+//
+func NewGSSAPIContext() *GSSAPIContext {
 	var c = &GSSAPIContext{
 		reqFlags: uint32(gssapi.GSS_C_INTEG_FLAG) + uint32(gssapi.GSS_C_MUTUAL_FLAG) + uint32(gssapi.GSS_C_SEQUENCE_FLAG) + uint32(gssapi.GSS_C_CONF_FLAG),
 	}
@@ -47,7 +47,7 @@ func NewGSSAPIContext() * GSSAPIContext {
 
 // InitClientContext initializes the context and gets the response(token)
 // to send to the server
-func InitClientContext(c * GSSAPIContext, service string, inputToken []byte)  error {
+func InitClientContext(c *GSSAPIContext, service string, inputToken []byte) error {
 	c.ServiceName = service
 
 	var _inputToken *gssapi.Buffer
@@ -108,7 +108,7 @@ func (c *GSSAPIContext) Unwrap(original []byte) (unwrapped []byte, err error) {
 	}
 	_original, err := c.MakeBufferBytes(original)
 	defer _original.Release()
-	
+
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +121,7 @@ func (c *GSSAPIContext) Unwrap(original []byte) (unwrapped []byte, err error) {
 }
 
 // Dispose releases the acquired memory and destroys sensitive information
-func (c *GSSAPIContext) Dispose() error{
+func (c *GSSAPIContext) Dispose() error {
 	if c.contextId != nil {
 		return c.contextId.Unload()
 	}
@@ -130,15 +130,15 @@ func (c *GSSAPIContext) Dispose() error{
 
 // IntegAvail returns true in the integ_flag is available and therefore a security layer can be established
 func (c *GSSAPIContext) IntegAvail() bool {
-	return c.availFlags & uint32(gssapi.GSS_C_INTEG_FLAG) != 0
+	return c.availFlags&uint32(gssapi.GSS_C_INTEG_FLAG) != 0
 }
 
 // ConfAvail returns true in the conf_flag is available and therefore a confidentiality layer can be established
 func (c *GSSAPIContext) ConfAvail() bool {
-	return c.availFlags & uint32(gssapi.GSS_C_CONF_FLAG) != 0
+	return c.availFlags&uint32(gssapi.GSS_C_CONF_FLAG) != 0
 }
 
-func loadlib(debug bool, prefix string, c *GSSAPIContext)  error {
+func loadlib(debug bool, prefix string, c *GSSAPIContext) error {
 	max := gssapi.Err + 1
 	if debug {
 		max = gssapi.MaxSeverity

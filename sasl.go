@@ -1,11 +1,11 @@
 package gosasl
 
 import (
-	"log"
-	"fmt"
-	"regexp"
-	"github.com/beltran/gssapi"
 	"encoding/binary"
+	"fmt"
+	"github.com/beltran/gssapi"
+	"log"
+	"regexp"
 )
 
 const DEFAULT_MAX_LENGTH = 16384000
@@ -19,8 +19,8 @@ var AUTH_INT = "auth-int"
 var AUTH_CONF = "auth-conf"
 
 var QOP_TO_FLAG = map[string]byte{
-	AUTH: 1,
-	AUTH_INT: 2,
+	AUTH:      1,
+	AUTH_INT:  2,
 	AUTH_CONF: 4,
 }
 
@@ -28,16 +28,16 @@ type QOP []byte
 
 // MechanismConfig is the configuration to use for mechanisms
 type MechanismConfig struct {
-	name string
-	score int
-	complete bool
+	name               string
+	score              int
+	complete           bool
 	hasInitialResponse bool
-	allowsAnonymous bool
-	usesPlaintext bool
-	activeSafe bool
-	dictionarySafe bool
-	qop QOP
-	authorizationID string
+	allowsAnonymous    bool
+	usesPlaintext      bool
+	activeSafe         bool
+	dictionarySafe     bool
+	qop                QOP
+	authorizationID    string
 }
 
 // Mechanism is the common interface for all mechanisms
@@ -55,7 +55,7 @@ type AnonymousMechanism struct {
 }
 
 // NewAnonymousMechanism returns a new AnonymousMechanism
-func NewAnonymousMechanism() *AnonymousMechanism{
+func NewAnonymousMechanism() *AnonymousMechanism {
 	return &AnonymousMechanism{
 		mechanismConfig: newDefaultConfig("Anonymous"),
 	}
@@ -75,32 +75,32 @@ func (m *AnonymousMechanism) unwrap([]byte) ([]byte, error) {
 
 func (m *AnonymousMechanism) dispose() {}
 
-func (m *AnonymousMechanism) getConfig() *MechanismConfig{
+func (m *AnonymousMechanism) getConfig() *MechanismConfig {
 	return m.mechanismConfig
 }
 
 // PlainMechanism corresponds to PLAIN SASL mechanism
 type PlainMechanism struct {
 	mechanismConfig *MechanismConfig
-	identity string
-	username string
-	password string
+	identity        string
+	username        string
+	password        string
 }
 
 // NewPlainMechanism returns a new PlainMechanism
-func NewPlainMechanism(username string, password string) *PlainMechanism{
-	return &PlainMechanism {
+func NewPlainMechanism(username string, password string) *PlainMechanism {
+	return &PlainMechanism{
 		mechanismConfig: newDefaultConfig("PLAIN"),
-		username: username,
-		password: password,
+		username:        username,
+		password:        password,
 	}
 }
 
 func (m *PlainMechanism) step(challenge []byte) ([]byte, error) {
 	m.mechanismConfig.complete = true
 	var authID string
-	
-	if (m.mechanismConfig.authorizationID != "") {
+
+	if m.mechanismConfig.authorizationID != "" {
 		authID = m.mechanismConfig.authorizationID
 	} else {
 		authID = m.identity
@@ -121,39 +121,39 @@ func (m *PlainMechanism) dispose() {
 	m.password = ""
 }
 
-func (m *PlainMechanism) getConfig() *MechanismConfig{
+func (m *PlainMechanism) getConfig() *MechanismConfig {
 	return m.mechanismConfig
 }
 
 // GSSAPIMechanism corresponds to GSSAPI SASL mechanism
 type GSSAPIMechanism struct {
-	mechanismConfig *MechanismConfig
-	user string
-	host string
-	service string
-	principal string
+	mechanismConfig  *MechanismConfig
+	user             string
+	host             string
+	service          string
+	principal        string
 	negotiationStage int
-	context *GSSAPIContext
-	qop byte
-	supportedQop  uint8
-	userSelectQop  uint8
-	serverMaxLength int
-	maxLength int
+	context          *GSSAPIContext
+	qop              byte
+	supportedQop     uint8
+	userSelectQop    uint8
+	serverMaxLength  int
+	maxLength        int
 }
 
 // NewGSSAPIMechanism returns a new GSSAPIMechanism
 func NewGSSAPIMechanism(host string, service string, principal string) (mechanism *GSSAPIMechanism, err error) {
 	context := NewGSSAPIContext()
-	mechanism = &GSSAPIMechanism {
-		mechanismConfig: newDefaultConfig("GSSAPI"),
-		user: "",
-		host: host,
-		service: service,
-		principal: principal,
+	mechanism = &GSSAPIMechanism{
+		mechanismConfig:  newDefaultConfig("GSSAPI"),
+		user:             "",
+		host:             host,
+		service:          service,
+		principal:        principal,
 		negotiationStage: 0,
-		context: context,
-		maxLength: DEFAULT_MAX_LENGTH,
-		supportedQop: QOP_TO_FLAG[AUTH] | QOP_TO_FLAG[AUTH_CONF] | QOP_TO_FLAG[AUTH_INT],
+		context:          context,
+		maxLength:        DEFAULT_MAX_LENGTH,
+		supportedQop:     QOP_TO_FLAG[AUTH] | QOP_TO_FLAG[AUTH_CONF] | QOP_TO_FLAG[AUTH_INT],
 		// userSelectQop: QOP_TO_FLAG[AUTH] | QOP_TO_FLAG[AUTH_CONF] | QOP_TO_FLAG[AUTH_INT],
 		userSelectQop: QOP_TO_FLAG[AUTH],
 	}
@@ -162,17 +162,17 @@ func NewGSSAPIMechanism(host string, service string, principal string) (mechanis
 
 func (m *GSSAPIMechanism) step(challenge []byte) ([]byte, error) {
 	if m.negotiationStage == 0 {
-		err := InitClientContext(m.context, m.service + "/" + m.host, nil)
+		err := InitClientContext(m.context, m.service+"/"+m.host, nil)
 		m.negotiationStage = 1
 		return m.context.token, err
 
 	} else if m.negotiationStage == 1 {
-		err := InitClientContext(m.context, m.service + "/" + m.host, challenge)
+		err := InitClientContext(m.context, m.service+"/"+m.host, challenge)
 		if err != nil {
 			log.Fatal(err)
 			return nil, err
 		}
-		
+
 		var srcName *gssapi.Name
 		if m.context.contextId != nil {
 			srcName, _, _, _, _, _, _, _ = m.context.contextId.InquireContext()
@@ -181,12 +181,12 @@ func (m *GSSAPIMechanism) step(challenge []byte) ([]byte, error) {
 			}
 		}
 		if m.user != "" {
-			if !m.context.IntegAvail() && ! m.context.ConfAvail() {
+			if !m.context.IntegAvail() && !m.context.ConfAvail() {
 				log.Println("No security layer can be established, auth is still possible")
 			}
 			m.negotiationStage = 2
 		}
-		return m.context.token, nil 
+		return m.context.token, nil
 	} else if m.negotiationStage == 2 {
 		data, err := m.context.Unwrap(challenge)
 		if err != nil {
@@ -207,27 +207,29 @@ func (m *GSSAPIMechanism) step(challenge []byte) ([]byte, error) {
 			m.maxLength = 0
 		}
 
-		header := make([]byte, 4) 
+		header := make([]byte, 4)
 		maxLength := m.serverMaxLength
-		if m.maxLength < m.serverMaxLength { maxLength = m.maxLength }
+		if m.maxLength < m.serverMaxLength {
+			maxLength = m.maxLength
+		}
 
 		headerInt := (uint(m.qop) << 24) | uint(maxLength)
-		
+
 		binary.BigEndian.PutUint32(header, uint32(headerInt))
-		
+
 		out := append(header, []byte(m.user)...)
 		wrappedOut, err := m.context.Wrap(out, false)
-		
+
 		m.mechanismConfig.complete = true
 		return wrappedOut, err
 	}
 	return nil, fmt.Errorf("Error, this code should be unreachable")
 }
 
-func (m *GSSAPIMechanism) selectQop(qopByte byte) (byte, error){
+func (m *GSSAPIMechanism) selectQop(qopByte byte) (byte, error) {
 	availableQops := m.userSelectQop & m.supportedQop & qopByte
-	for _, qop := range []byte{QOP_TO_FLAG[AUTH_CONF], QOP_TO_FLAG[AUTH_INT], QOP_TO_FLAG[AUTH]}  {
-		if qop & availableQops != 0 {
+	for _, qop := range []byte{QOP_TO_FLAG[AUTH_CONF], QOP_TO_FLAG[AUTH_INT], QOP_TO_FLAG[AUTH]} {
+		if qop&availableQops != 0 {
 			return qop, nil
 		}
 	}
@@ -259,15 +261,14 @@ func (m GSSAPIMechanism) wrap(outgoing []byte) ([]byte, error) {
 func (m GSSAPIMechanism) unwrap(incoming []byte) ([]byte, error) {
 	if m.qop == QOP_TO_FLAG[AUTH] {
 		return incoming, nil
-	} else {
-		return m.context.Unwrap(deepCopy(incoming))
 	}
+	return m.context.Unwrap(deepCopy(incoming))
 }
 
 func deepCopy(original []byte) []byte {
 	copied := make([]byte, len(original))
 	for i, el := range original {
-        copied[i] = el
+		copied[i] = el
 	}
 	return copied
 }
@@ -276,36 +277,36 @@ func (m GSSAPIMechanism) dispose() {
 	m.context.Dispose()
 }
 
-func (m GSSAPIMechanism) getConfig() *MechanismConfig{
+func (m GSSAPIMechanism) getConfig() *MechanismConfig {
 	return m.mechanismConfig
 }
 
 // Client is the entry point for usage of this library
 type Client struct {
-	host string
+	host            string
 	authorizationID string
-	mechanism Mechanism
+	mechanism       Mechanism
 }
 
-func newDefaultConfig (name string) *MechanismConfig{
-	return &MechanismConfig {
-		name: name,
-		score: 0,
-		complete: false,
+func newDefaultConfig(name string) *MechanismConfig {
+	return &MechanismConfig{
+		name:               name,
+		score:              0,
+		complete:           false,
 		hasInitialResponse: false,
-		allowsAnonymous: true,
-		usesPlaintext: true,
-		activeSafe: false,
-		dictionarySafe: false,
-		qop: nil,
-		authorizationID: "",
+		allowsAnonymous:    true,
+		usesPlaintext:      true,
+		activeSafe:         false,
+		dictionarySafe:     false,
+		qop:                nil,
+		authorizationID:    "",
 	}
 }
 
 // NewSaslClient creates a new Client
 func NewSaslClient(host string, mechanismName string, username string, password string) *Client {
-	var mechanism Mechanism;
-	
+	var mechanism Mechanism
+
 	switch mechanismName {
 	case "Anonymous":
 		mechanism = NewAnonymousMechanism()
@@ -316,17 +317,17 @@ func NewSaslClient(host string, mechanismName string, username string, password 
 	default:
 		panic(fmt.Sprintf("Unknown mechanism %s", mechanismName))
 	}
-	
-	return &Client {
-		host: host,
+
+	return &Client{
+		host:      host,
 		mechanism: mechanism,
 	}
 }
 
 // NewSaslClientWithMechanism accepts the mechanisms and constructs the client from that
 func NewSaslClientWithMechanism(host string, mechanism Mechanism) *Client {
-	return &Client {
-		host: host,
+	return &Client{
+		host:      host,
 		mechanism: mechanism,
 	}
 }
@@ -352,6 +353,6 @@ func (client *Client) Unwrap(incoming []byte) ([]byte, error) {
 }
 
 // Dispose eliminates sensitive information
-func (client *Client) Dispose(){
+func (client *Client) Dispose() {
 	client.mechanism.dispose()
 }
