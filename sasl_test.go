@@ -38,7 +38,7 @@ func TestPlainMechanism(t *testing.T) {
 }
 
 func TestGSSAPIMechanism(t *testing.T) {
-	mechanism, err := NewGSSAPIMechanism("localhost", "hs2.example.com", "hive")
+	mechanism, err := NewGSSAPIMechanism("hive")
 
 	if err != nil {
 		t.Fatal(err)

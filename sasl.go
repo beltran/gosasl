@@ -43,8 +43,8 @@ type MechanismConfig struct {
 // Mechanism is the common interface for all mechanisms
 type Mechanism interface {
 	step(challenge []byte) ([]byte, error)
-	wrap(outgoing []byte) ([]byte, error)
-	unwrap(incoming []byte) ([]byte, error)
+	encode(outgoing []byte) ([]byte, error)
+	decode(incoming []byte) ([]byte, error)
 	dispose()
 	getConfig() *MechanismConfig
 }
@@ -65,11 +65,11 @@ func (m *AnonymousMechanism) step([]byte) ([]byte, error) {
 	return []byte("Anonymous, None"), nil
 }
 
-func (m *AnonymousMechanism) wrap([]byte) ([]byte, error) {
+func (m *AnonymousMechanism) encode([]byte) ([]byte, error) {
 	return nil, nil
 }
 
-func (m *AnonymousMechanism) unwrap([]byte) ([]byte, error) {
+func (m *AnonymousMechanism) decode([]byte) ([]byte, error) {
 	return nil, nil
 }
 
@@ -109,11 +109,11 @@ func (m *PlainMechanism) step(challenge []byte) ([]byte, error) {
 	return []byte(fmt.Sprintf("%s%s%s%s%s", authID, NULL, m.username, NULL, m.password)), nil
 }
 
-func (m *PlainMechanism) wrap(outgoing []byte) ([]byte, error) {
+func (m *PlainMechanism) encode(outgoing []byte) ([]byte, error) {
 	return outgoing, nil
 }
 
-func (m *PlainMechanism) unwrap(incoming []byte) ([]byte, error) {
+func (m *PlainMechanism) decode(incoming []byte) ([]byte, error) {
 	return incoming, nil
 }
 
@@ -128,34 +128,29 @@ func (m *PlainMechanism) getConfig() *MechanismConfig {
 // GSSAPIMechanism corresponds to GSSAPI SASL mechanism
 type GSSAPIMechanism struct {
 	mechanismConfig  *MechanismConfig
-	user             string
 	host             string
+	user             string
 	service          string
-	principal        string
 	negotiationStage int
 	context          *GSSAPIContext
 	qop              byte
 	supportedQop     uint8
-	userSelectQop    uint8
 	serverMaxLength  int
-	maxLength        int
+	UserSelectQop    uint8
+	MaxLength        int
 }
 
 // NewGSSAPIMechanism returns a new GSSAPIMechanism
-func NewGSSAPIMechanism(host string, service string, principal string) (mechanism *GSSAPIMechanism, err error) {
+func NewGSSAPIMechanism(service string) (mechanism *GSSAPIMechanism, err error) {
 	context := NewGSSAPIContext()
 	mechanism = &GSSAPIMechanism{
 		mechanismConfig:  newDefaultConfig("GSSAPI"),
-		user:             "",
-		host:             host,
 		service:          service,
-		principal:        principal,
 		negotiationStage: 0,
 		context:          context,
-		maxLength:        DEFAULT_MAX_LENGTH,
 		supportedQop:     QOP_TO_FLAG[AUTH] | QOP_TO_FLAG[AUTH_CONF] | QOP_TO_FLAG[AUTH_INT],
-		// userSelectQop: QOP_TO_FLAG[AUTH] | QOP_TO_FLAG[AUTH_CONF] | QOP_TO_FLAG[AUTH_INT],
-		userSelectQop: QOP_TO_FLAG[AUTH],
+		MaxLength:        DEFAULT_MAX_LENGTH,
+		UserSelectQop: 	  QOP_TO_FLAG[AUTH] | QOP_TO_FLAG[AUTH_CONF] | QOP_TO_FLAG[AUTH_INT],
 	}
 	return
 }
@@ -204,13 +199,13 @@ func (m *GSSAPIMechanism) step(challenge []byte) ([]byte, error) {
 
 		m.qop, err = m.selectQop(qopBits)
 		if err != nil {
-			m.maxLength = 0
+			m.MaxLength = 0
 		}
 
 		header := make([]byte, 4)
 		maxLength := m.serverMaxLength
-		if m.maxLength < m.serverMaxLength {
-			maxLength = m.maxLength
+		if m.MaxLength < m.serverMaxLength {
+			maxLength = m.MaxLength
 		}
 
 		headerInt := (uint(m.qop) << 24) | uint(maxLength)
@@ -227,7 +222,7 @@ func (m *GSSAPIMechanism) step(challenge []byte) ([]byte, error) {
 }
 
 func (m *GSSAPIMechanism) selectQop(qopByte byte) (byte, error) {
-	availableQops := m.userSelectQop & m.supportedQop & qopByte
+	availableQops := m.UserSelectQop & m.supportedQop & qopByte
 	for _, qop := range []byte{QOP_TO_FLAG[AUTH_CONF], QOP_TO_FLAG[AUTH_INT], QOP_TO_FLAG[AUTH]} {
 		if qop&availableQops != 0 {
 			return qop, nil
@@ -246,7 +241,7 @@ func replaceSPNHostWildcard(spn, host string) string {
 	return spn[:res[2]] + host + spn[res[3]:]
 }
 
-func (m GSSAPIMechanism) wrap(outgoing []byte) ([]byte, error) {
+func (m GSSAPIMechanism) encode(outgoing []byte) ([]byte, error) {
 	if m.qop == QOP_TO_FLAG[AUTH] {
 		return outgoing, nil
 	} else {
@@ -258,7 +253,7 @@ func (m GSSAPIMechanism) wrap(outgoing []byte) ([]byte, error) {
 	}
 }
 
-func (m GSSAPIMechanism) unwrap(incoming []byte) ([]byte, error) {
+func (m GSSAPIMechanism) decode(incoming []byte) ([]byte, error) {
 	if m.qop == QOP_TO_FLAG[AUTH] {
 		return incoming, nil
 	}
@@ -326,6 +321,10 @@ func NewSaslClient(host string, mechanismName string, username string, password 
 
 // NewSaslClientWithMechanism accepts the mechanisms and constructs the client from that
 func NewSaslClientWithMechanism(host string, mechanism Mechanism) *Client {
+	mech, ok := mechanism.(*GSSAPIMechanism)
+	if ok {
+		mech.host = host
+	}
 	return &Client{
 		host:      host,
 		mechanism: mechanism,
@@ -343,13 +342,13 @@ func (client *Client) Complete() bool {
 }
 
 // Wrap is applied on the outgoing bytes to secure them usually
-func (client *Client) Wrap(outgoing []byte) ([]byte, error) {
-	return client.mechanism.wrap(outgoing)
+func (client *Client) Encode(outgoing []byte) ([]byte, error) {
+	return client.mechanism.encode(outgoing)
 }
 
 // Unwrap is used on the incoming data to produce the usable bytes
-func (client *Client) Unwrap(incoming []byte) ([]byte, error) {
-	return client.mechanism.unwrap(incoming)
+func (client *Client) Decode(incoming []byte) ([]byte, error) {
+	return client.mechanism.decode(incoming)
 }
 
 // Dispose eliminates sensitive information
