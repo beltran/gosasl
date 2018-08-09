@@ -7,7 +7,8 @@ import (
 )
 
 func TestClient(t *testing.T) {
-	client := NewSaslClient("localhost", "Anonymous", "", "")
+	mechanism := NewAnonymousMechanism()
+	client := NewSaslClient("localhost", mechanism)
 	client.Start()
 	ret, _ := client.Step(nil)
 	if !reflect.DeepEqual(ret, []byte("Anonymous, None")) {
@@ -25,7 +26,8 @@ func TestAnonymousMechanism(t *testing.T) {
 }
 
 func TestPlainMechanism(t *testing.T) {
-	client := NewSaslClient("localhost", "PLAIN", "user", "password")
+	mechanism := NewPlainMechanism("user", "password")
+	client := NewSaslClient("localhost", mechanism)
 	client.Start()
 	response, _ := client.Step([]byte("abcd"))
 	if !client.Complete() {
@@ -47,7 +49,7 @@ func TestGSSAPIMechanism(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	client := NewSaslClientWithMechanism("localhost", mechanism)
+	client := NewSaslClient("localhost", mechanism)
 	client.Start()
 	for _, input := range [][]byte{[]byte("Ahjdskahdjkaw12kadlsj"), []byte("0"), nil} {
 		client.Step(input)

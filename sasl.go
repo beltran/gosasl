@@ -311,29 +311,8 @@ func newDefaultConfig(name string) *MechanismConfig {
 	}
 }
 
-// NewSaslClient creates a new Client
-func NewSaslClient(host string, mechanismName string, username string, password string) *Client {
-	var mechanism Mechanism
-
-	switch mechanismName {
-	case "Anonymous":
-		mechanism = NewAnonymousMechanism()
-	case "NONE":
-		mechanism = NewPlainMechanism(username, password)
-	case "PLAIN":
-		mechanism = NewPlainMechanism(username, password)
-	default:
-		panic(fmt.Sprintf("Unknown mechanism %s", mechanismName))
-	}
-
-	return &Client{
-		host:      host,
-		mechanism: mechanism,
-	}
-}
-
-// NewSaslClientWithMechanism accepts the mechanisms and constructs the client from that
-func NewSaslClientWithMechanism(host string, mechanism Mechanism) *Client {
+// NewSaslClient creates a new client given a host and a mechanism
+func NewSaslClient(host string, mechanism Mechanism) *Client {
 	mech, ok := mechanism.(*GSSAPIMechanism)
 	if ok {
 		mech.host = host
