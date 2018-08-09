@@ -42,6 +42,7 @@ type MechanismConfig struct {
 
 // Mechanism is the common interface for all mechanisms
 type Mechanism interface {
+	start() ([]byte, error)
 	step(challenge []byte) ([]byte, error)
 	encode(outgoing []byte) ([]byte, error)
 	decode(incoming []byte) ([]byte, error)
@@ -59,6 +60,10 @@ func NewAnonymousMechanism() *AnonymousMechanism {
 	return &AnonymousMechanism{
 		mechanismConfig: newDefaultConfig("Anonymous"),
 	}
+}
+
+func (m *AnonymousMechanism) start() ([]byte, error) {
+	return m.step(nil)
 }
 
 func (m *AnonymousMechanism) step([]byte) ([]byte, error) {
@@ -94,6 +99,10 @@ func NewPlainMechanism(username string, password string) *PlainMechanism {
 		username:        username,
 		password:        password,
 	}
+}
+
+func (m *PlainMechanism) start() ([]byte, error) {
+	return m.step(nil)
 }
 
 func (m *PlainMechanism) step(challenge []byte) ([]byte, error) {
@@ -153,6 +162,10 @@ func NewGSSAPIMechanism(service string) (mechanism *GSSAPIMechanism, err error) 
 		UserSelectQop: 	  QOP_TO_FLAG[AUTH] | QOP_TO_FLAG[AUTH_CONF] | QOP_TO_FLAG[AUTH_INT],
 	}
 	return
+}
+
+func (m *GSSAPIMechanism) start() ([]byte, error) {
+	return m.step(nil)
 }
 
 func (m *GSSAPIMechanism) step(challenge []byte) ([]byte, error) {
@@ -331,7 +344,12 @@ func NewSaslClientWithMechanism(host string, mechanism Mechanism) *Client {
 	}
 }
 
-// Process is used for the initial handshake
+// Start initializes the client and may generate the first challenge
+func (client *Client) Start() ([]byte, error) {
+	return client.mechanism.start()
+}
+
+// Step is used for the initial handshake
 func (client *Client) Step(challenge []byte) ([]byte, error) {
 	return client.mechanism.step(challenge)
 }
@@ -341,12 +359,12 @@ func (client *Client) Complete() bool {
 	return client.mechanism.getConfig().complete
 }
 
-// Wrap is applied on the outgoing bytes to secure them usually
+// Encode is applied on the outgoing bytes to secure them usually
 func (client *Client) Encode(outgoing []byte) ([]byte, error) {
 	return client.mechanism.encode(outgoing)
 }
 
-// Unwrap is used on the incoming data to produce the usable bytes
+// Decode is used on the incoming data to produce the usable bytes
 func (client *Client) Decode(incoming []byte) ([]byte, error) {
 	return client.mechanism.decode(incoming)
 }
