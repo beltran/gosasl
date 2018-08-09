@@ -8,6 +8,8 @@ import (
 	"regexp"
 )
 
+// DEFAULT_MAX_LENGTH is the max length that will be requested in the negotiation
+// It can be set with gssapiMechanism.MaxLength = 1000
 const DEFAULT_MAX_LENGTH = 16384000
 
 var (
@@ -26,12 +28,14 @@ var AUTH_CONF = "auth-conf"
 
 //QOP_TO_FLAG is a dict that translate the string flag name into the actual bit
 // It can be used wiht gssapiMechanism.UserSelectQop = QOP_TO_FLAG[AUTH_CONF] | QOP_TO_FLAG[AUTH_INT]
+// Flags AUTH_INT, AUTH_CONF haven't been tested
 var QOP_TO_FLAG = map[string]byte{
 	AUTH:      1,
 	AUTH_INT:  2,
 	AUTH_CONF: 4,
 }
 
+// QOP is the byte that holds the QOP flags
 type QOP []byte
 
 // MechanismConfig is the configuration to use for mechanisms
@@ -60,13 +64,13 @@ type Mechanism interface {
 
 // AnonymousMechanism corresponds to NONE/ Anonymous SASL mechanism
 type AnonymousMechanism struct {
-	mechanismConfig *MechanismConfig
+	config *MechanismConfig
 }
 
 // NewAnonymousMechanism returns a new AnonymousMechanism
 func NewAnonymousMechanism() *AnonymousMechanism {
 	return &AnonymousMechanism{
-		mechanismConfig: newDefaultConfig("Anonymous"),
+		config: newDefaultConfig("Anonymous"),
 	}
 }
 
@@ -89,7 +93,7 @@ func (m *AnonymousMechanism) decode([]byte) ([]byte, error) {
 func (m *AnonymousMechanism) dispose() {}
 
 func (m *AnonymousMechanism) getConfig() *MechanismConfig {
-	return m.mechanismConfig
+	return m.config
 }
 
 // PlainMechanism corresponds to PLAIN SASL mechanism
@@ -159,7 +163,7 @@ type GSSAPIMechanism struct {
 
 // NewGSSAPIMechanism returns a new GSSAPIMechanism
 func NewGSSAPIMechanism(service string) (mechanism *GSSAPIMechanism, err error) {
-	context := NewGSSAPIContext()
+	context := newGSSAPIContext()
 	mechanism = &GSSAPIMechanism{
 		mechanismConfig:  newDefaultConfig("GSSAPI"),
 		service:          service,
@@ -178,12 +182,12 @@ func (m *GSSAPIMechanism) start() ([]byte, error) {
 
 func (m *GSSAPIMechanism) step(challenge []byte) ([]byte, error) {
 	if m.negotiationStage == 0 {
-		err := InitClientContext(m.context, m.service+"/"+m.host, nil)
+		err := initClientContext(m.context, m.service+"/"+m.host, nil)
 		m.negotiationStage = 1
 		return m.context.token, err
 
 	} else if m.negotiationStage == 1 {
-		err := InitClientContext(m.context, m.service+"/"+m.host, challenge)
+		err := initClientContext(m.context, m.service+"/"+m.host, challenge)
 		if err != nil {
 			log.Fatal(err)
 			return nil, err
@@ -197,14 +201,14 @@ func (m *GSSAPIMechanism) step(challenge []byte) ([]byte, error) {
 			}
 		}
 		if m.user != "" {
-			if !m.context.IntegAvail() && !m.context.ConfAvail() {
+			if !m.context.integAvail() && !m.context.confAvail() {
 				log.Println("No security layer can be established, auth is still possible")
 			}
 			m.negotiationStage = 2
 		}
 		return m.context.token, nil
 	} else if m.negotiationStage == 2 {
-		data, err := m.context.Unwrap(challenge)
+		data, err := m.context.unwrap(challenge)
 		if err != nil {
 			return nil, err
 		}
@@ -234,7 +238,7 @@ func (m *GSSAPIMechanism) step(challenge []byte) ([]byte, error) {
 		binary.BigEndian.PutUint32(header, uint32(headerInt))
 
 		out := append(header, []byte(m.user)...)
-		wrappedOut, err := m.context.Wrap(out, false)
+		wrappedOut, err := m.context.wrap(out, false)
 
 		m.mechanismConfig.complete = true
 		return wrappedOut, err
@@ -262,6 +266,7 @@ func replaceSPNHostWildcard(spn, host string) string {
 	return spn[:res[2]] + host + spn[res[3]:]
 }
 
+// Test with m.qop != QOP_TO_FLAG[AUTH]
 func (m GSSAPIMechanism) encode(outgoing []byte) ([]byte, error) {
 	if m.qop == QOP_TO_FLAG[AUTH] {
 		return outgoing, nil
@@ -270,15 +275,16 @@ func (m GSSAPIMechanism) encode(outgoing []byte) ([]byte, error) {
 		if m.qop == QOP_TO_FLAG[AUTH_CONF] {
 			conf_flag = true
 		}
-		return m.context.Wrap(deepCopy(outgoing), conf_flag)
+		return m.context.wrap(deepCopy(outgoing), conf_flag)
 	}
 }
 
+// Test with m.qop != QOP_TO_FLAG[AUTH]
 func (m GSSAPIMechanism) decode(incoming []byte) ([]byte, error) {
 	if m.qop == QOP_TO_FLAG[AUTH] {
 		return incoming, nil
 	}
-	return m.context.Unwrap(deepCopy(incoming))
+	return m.context.unwrap(deepCopy(incoming))
 }
 
 func deepCopy(original []byte) []byte {
@@ -290,7 +296,7 @@ func deepCopy(original []byte) []byte {
 }
 
 func (m GSSAPIMechanism) dispose() {
-	m.context.Dispose()
+	m.context.dispose()
 }
 
 func (m GSSAPIMechanism) getConfig() *MechanismConfig {

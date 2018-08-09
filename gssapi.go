@@ -30,7 +30,7 @@ type GSSAPIContext struct {
 }
 
 //
-func NewGSSAPIContext() *GSSAPIContext {
+func newGSSAPIContext() *GSSAPIContext {
 	var c = &GSSAPIContext{
 		reqFlags: uint32(gssapi.GSS_C_INTEG_FLAG) + uint32(gssapi.GSS_C_MUTUAL_FLAG) + uint32(gssapi.GSS_C_SEQUENCE_FLAG) + uint32(gssapi.GSS_C_CONF_FLAG),
 	}
@@ -47,7 +47,7 @@ func NewGSSAPIContext() *GSSAPIContext {
 
 // InitClientContext initializes the context and gets the response(token)
 // to send to the server
-func InitClientContext(c *GSSAPIContext, service string, inputToken []byte) error {
+func initClientContext(c *GSSAPIContext, service string, inputToken []byte) error {
 	c.ServiceName = service
 
 	var _inputToken *gssapi.Buffer
@@ -83,7 +83,7 @@ func InitClientContext(c *GSSAPIContext, service string, inputToken []byte) erro
 }
 
 // Wrap calls GSS_Wrap
-func (c *GSSAPIContext) Wrap(original []byte, conf_flag bool) (wrapped []byte, err error) {
+func (c *GSSAPIContext) wrap(original []byte, conf_flag bool) (wrapped []byte, err error) {
 	if original == nil {
 		return
 	}
@@ -102,7 +102,7 @@ func (c *GSSAPIContext) Wrap(original []byte, conf_flag bool) (wrapped []byte, e
 }
 
 // Unwrap calls GSS_Unwrap
-func (c *GSSAPIContext) Unwrap(original []byte) (unwrapped []byte, err error) {
+func (c *GSSAPIContext) unwrap(original []byte) (unwrapped []byte, err error) {
 	if original == nil {
 		return
 	}
@@ -121,7 +121,7 @@ func (c *GSSAPIContext) Unwrap(original []byte) (unwrapped []byte, err error) {
 }
 
 // Dispose releases the acquired memory and destroys sensitive information
-func (c *GSSAPIContext) Dispose() error {
+func (c *GSSAPIContext) dispose() error {
 	if c.contextId != nil {
 		return c.contextId.Unload()
 	}
@@ -129,12 +129,12 @@ func (c *GSSAPIContext) Dispose() error {
 }
 
 // IntegAvail returns true in the integ_flag is available and therefore a security layer can be established
-func (c *GSSAPIContext) IntegAvail() bool {
+func (c *GSSAPIContext) integAvail() bool {
 	return c.availFlags&uint32(gssapi.GSS_C_INTEG_FLAG) != 0
 }
 
 // ConfAvail returns true in the conf_flag is available and therefore a confidentiality layer can be established
-func (c *GSSAPIContext) ConfAvail() bool {
+func (c *GSSAPIContext) confAvail() bool {
 	return c.availFlags&uint32(gssapi.GSS_C_CONF_FLAG) != 0
 }
 
