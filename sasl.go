@@ -49,7 +49,8 @@ type MechanismConfig struct {
 	activeSafe         bool
 	dictionarySafe     bool
 	qop                QOP
-	authorizationID    string
+	// It can be set with mechanism.getConfig().AuthorizationID = "authorizationId"
+	AuthorizationID string
 }
 
 // Mechanism is the common interface for all mechanisms
@@ -83,6 +84,7 @@ func (m *AnonymousMechanism) step([]byte) ([]byte, error) {
 }
 
 func (m *AnonymousMechanism) encode([]byte) ([]byte, error) {
+	m.config.complete = true
 	return nil, nil
 }
 
@@ -121,8 +123,8 @@ func (m *PlainMechanism) step(challenge []byte) ([]byte, error) {
 	m.mechanismConfig.complete = true
 	var authID string
 
-	if m.mechanismConfig.authorizationID != "" {
-		authID = m.mechanismConfig.authorizationID
+	if m.mechanismConfig.AuthorizationID != "" {
+		authID = m.mechanismConfig.AuthorizationID
 	} else {
 		authID = m.identity
 	}
@@ -148,7 +150,7 @@ func (m *PlainMechanism) getConfig() *MechanismConfig {
 
 // GSSAPIMechanism corresponds to GSSAPI SASL mechanism
 type GSSAPIMechanism struct {
-	mechanismConfig  *MechanismConfig
+	config           *MechanismConfig
 	host             string
 	user             string
 	service          string
@@ -165,13 +167,13 @@ type GSSAPIMechanism struct {
 func NewGSSAPIMechanism(service string) (mechanism *GSSAPIMechanism, err error) {
 	context := newGSSAPIContext()
 	mechanism = &GSSAPIMechanism{
-		mechanismConfig:  newDefaultConfig("GSSAPI"),
+		config:           newDefaultConfig("GSSAPI"),
 		service:          service,
 		negotiationStage: 0,
 		context:          context,
 		supportedQop:     QOP_TO_FLAG[AUTH] | QOP_TO_FLAG[AUTH_CONF] | QOP_TO_FLAG[AUTH_INT],
 		MaxLength:        DEFAULT_MAX_LENGTH,
-		UserSelectQop: 	  QOP_TO_FLAG[AUTH] | QOP_TO_FLAG[AUTH_CONF] | QOP_TO_FLAG[AUTH_INT],
+		UserSelectQop:    QOP_TO_FLAG[AUTH] | QOP_TO_FLAG[AUTH_CONF] | QOP_TO_FLAG[AUTH_INT],
 	}
 	return
 }
@@ -201,8 +203,10 @@ func (m *GSSAPIMechanism) step(challenge []byte) ([]byte, error) {
 			}
 		}
 		if m.user != "" {
+			// Check if the context is available. If the user has set the flags
+			// it will fail, although at this point we could know that the negotiation won't succeed
 			if !m.context.integAvail() && !m.context.confAvail() {
-				log.Println("No security layer can be established, auth is still possible")
+				log.Println("No security layer can be established, authentication is still possible")
 			}
 			m.negotiationStage = 2
 		}
@@ -223,6 +227,7 @@ func (m *GSSAPIMechanism) step(challenge []byte) ([]byte, error) {
 		}
 
 		m.qop, err = m.selectQop(qopBits)
+		// The client doesn't support or want any of the security layers offered by the server
 		if err != nil {
 			m.MaxLength = 0
 		}
@@ -237,10 +242,15 @@ func (m *GSSAPIMechanism) step(challenge []byte) ([]byte, error) {
 
 		binary.BigEndian.PutUint32(header, uint32(headerInt))
 
-		out := append(header, []byte(m.user)...)
+		// FLAG_BYTE + 3 bytes of length + user or authority
+		var name string
+		if name = m.user; m.config.AuthorizationID != "" {
+			name = m.config.AuthorizationID
+		}
+		out := append(header, []byte(name)...)
 		wrappedOut, err := m.context.wrap(out, false)
 
-		m.mechanismConfig.complete = true
+		m.config.complete = true
 		return wrappedOut, err
 	}
 	return nil, fmt.Errorf("Error, this code should be unreachable")
@@ -300,7 +310,7 @@ func (m GSSAPIMechanism) dispose() {
 }
 
 func (m GSSAPIMechanism) getConfig() *MechanismConfig {
-	return m.mechanismConfig
+	return m.config
 }
 
 // Client is the entry point for usage of this library
@@ -321,7 +331,7 @@ func newDefaultConfig(name string) *MechanismConfig {
 		activeSafe:         false,
 		dictionarySafe:     false,
 		qop:                nil,
-		authorizationID:    "",
+		AuthorizationID:    "",
 	}
 }
 
@@ -350,6 +360,11 @@ func (client *Client) Step(challenge []byte) ([]byte, error) {
 // Complete returns true if the handshake has ended
 func (client *Client) Complete() bool {
 	return client.mechanism.getConfig().complete
+}
+
+// GetConfig returns the configuration of the mechanism
+func (client *Client) GetConfig() *MechanismConfig {
+	return client.mechanism.getConfig()
 }
 
 // Encode is applied on the outgoing bytes to secure them usually

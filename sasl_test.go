@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestClient(t *testing.T) {
+func TestAnonymousMechanism(t *testing.T) {
 	mechanism := NewAnonymousMechanism()
 	client := NewSaslClient("localhost", mechanism)
 	client.Start()
@@ -14,15 +14,10 @@ func TestClient(t *testing.T) {
 	if !reflect.DeepEqual(ret, []byte("Anonymous, None")) {
 		t.Fatal("Unexpected response from client.process")
 	}
-	client.Dispose()
-}
-
-func TestAnonymousMechanism(t *testing.T) {
-	mechanism := NewAnonymousMechanism()
-	ret, _ := mechanism.step(nil)
-	if !reflect.DeepEqual(ret, []byte("Anonymous, None")) {
-		t.Fatal("Unexpected response from mechanism.process")
+	if !client.Complete() {
+		t.Fatal("Challenge should have completed")
 	}
+	client.Dispose()
 }
 
 func TestPlainMechanism(t *testing.T) {
@@ -42,6 +37,24 @@ func TestPlainMechanism(t *testing.T) {
 	client.Dispose()
 }
 
+func TestPlainMechanismWithAuthorizationId(t *testing.T) {
+	mechanism := NewPlainMechanism("user", "password")
+	client := NewSaslClient("localhost", mechanism)
+	client.GetConfig().AuthorizationID = "authId"
+	client.Start()
+	response, _ := client.Step([]byte("abcd"))
+	if !client.Complete() {
+		t.Fatal("Challenge should have completed")
+	}
+
+	NULL := "\x00"
+	expectedResponse := []byte(fmt.Sprintf("%s%s%s%s%s", "authId", NULL, "user", NULL, "password"))
+	if !reflect.DeepEqual(response, expectedResponse) {
+		t.Fatal("Unexpected response from client.process")
+	}
+	client.Dispose()
+}
+
 func TestGSSAPIMechanism(t *testing.T) {
 	mechanism, err := NewGSSAPIMechanism("hive")
 
@@ -50,6 +63,8 @@ func TestGSSAPIMechanism(t *testing.T) {
 	}
 
 	client := NewSaslClient("localhost", mechanism)
+	client.GetConfig().AuthorizationID = "username"
+	fmt.Println(client.GetConfig().AuthorizationID)
 	client.Start()
 	for _, input := range [][]byte{[]byte("Ahjdskahdjkaw12kadlsj"), []byte("0"), nil} {
 		client.Step(input)
