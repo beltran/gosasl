@@ -14,10 +14,18 @@ var (
 	krbSPNHost = regexp.MustCompile(`\A[^/]+/(_HOST)([@/]|\z)`)
 )
 
+// AUTH if the flag used for just basic auth, no confidentiality
 var AUTH = "auth"
+
+// AUTH_INT is the flag for authentication and integrety
 var AUTH_INT = "auth-int"
+
+// AUTH_CONF is the flag for authentication and confidentiality. It
+// the most secure option.
 var AUTH_CONF = "auth-conf"
 
+//QOP_TO_FLAG is a dict that translate the string flag name into the actual bit
+// It can be used wiht gssapiMechanism.UserSelectQop = QOP_TO_FLAG[AUTH_CONF] | QOP_TO_FLAG[AUTH_INT]
 var QOP_TO_FLAG = map[string]byte{
 	AUTH:      1,
 	AUTH_INT:  2,
