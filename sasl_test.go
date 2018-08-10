@@ -64,7 +64,6 @@ func TestGSSAPIMechanism(t *testing.T) {
 
 	client := NewSaslClient("localhost", mechanism)
 	client.GetConfig().AuthorizationID = "username"
-	fmt.Println(client.GetConfig().AuthorizationID)
 	client.Start()
 	for _, input := range [][]byte{[]byte("Ahjdskahdjkaw12kadlsj"), []byte("0"), nil} {
 		client.Step(input)

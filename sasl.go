@@ -28,7 +28,6 @@ var AUTH_CONF = "auth-conf"
 
 //QOP_TO_FLAG is a dict that translate the string flag name into the actual bit
 // It can be used wiht gssapiMechanism.UserSelectQop = QOP_TO_FLAG[AUTH_CONF] | QOP_TO_FLAG[AUTH_INT]
-// Flags AUTH_INT, AUTH_CONF haven't been tested
 var QOP_TO_FLAG = map[string]byte{
 	AUTH:      1,
 	AUTH_INT:  2,
@@ -80,11 +79,11 @@ func (m *AnonymousMechanism) start() ([]byte, error) {
 }
 
 func (m *AnonymousMechanism) step([]byte) ([]byte, error) {
+	m.config.complete = true
 	return []byte("Anonymous, None"), nil
 }
 
 func (m *AnonymousMechanism) encode([]byte) ([]byte, error) {
-	m.config.complete = true
 	return nil, nil
 }
 
@@ -173,7 +172,7 @@ func NewGSSAPIMechanism(service string) (mechanism *GSSAPIMechanism, err error) 
 		context:          context,
 		supportedQop:     QOP_TO_FLAG[AUTH] | QOP_TO_FLAG[AUTH_CONF] | QOP_TO_FLAG[AUTH_INT],
 		MaxLength:        DEFAULT_MAX_LENGTH,
-		UserSelectQop:    QOP_TO_FLAG[AUTH] | QOP_TO_FLAG[AUTH_CONF] | QOP_TO_FLAG[AUTH_INT],
+		UserSelectQop:    QOP_TO_FLAG[AUTH] | QOP_TO_FLAG[AUTH_INT] | QOP_TO_FLAG[AUTH_CONF],
 	}
 	return
 }
@@ -276,7 +275,6 @@ func replaceSPNHostWildcard(spn, host string) string {
 	return spn[:res[2]] + host + spn[res[3]:]
 }
 
-// Test with m.qop != QOP_TO_FLAG[AUTH]
 func (m GSSAPIMechanism) encode(outgoing []byte) ([]byte, error) {
 	if m.qop == QOP_TO_FLAG[AUTH] {
 		return outgoing, nil
@@ -289,7 +287,6 @@ func (m GSSAPIMechanism) encode(outgoing []byte) ([]byte, error) {
 	}
 }
 
-// Test with m.qop != QOP_TO_FLAG[AUTH]
 func (m GSSAPIMechanism) decode(incoming []byte) ([]byte, error) {
 	if m.qop == QOP_TO_FLAG[AUTH] {
 		return incoming, nil
