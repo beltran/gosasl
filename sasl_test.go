@@ -75,3 +75,21 @@ func TestGSSAPIMechanism(t *testing.T) {
 
 	client.Dispose()
 }
+
+func TestCramMD5Mechanism(t *testing.T) {
+	mechanism := NewCramMD5Mechanism("user", "pass")
+	client := NewSaslClient("localhost", mechanism)
+	client.Start()
+	response, _ := client.Step([]byte("msg"))
+	if !client.Complete() {
+		t.Fatal("Challenge should have completed")
+	}
+
+	var expected = []byte{117, 115, 101, 114, 32, 182, 240, 88, 240, 136, 183, 51, 193, 125, 1, 166, 33, 169, 193, 157, 192}
+
+	if !reflect.DeepEqual(response, expected) {
+		t.Fatalf("Response expected was %x, but got %x", expected, response)
+	}
+
+	client.Dispose()
+}
