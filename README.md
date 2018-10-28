@@ -5,6 +5,23 @@
 gosasl is a library for different SASL mechanisms. Currently GSSAPI, PLAIN and ANONYMOUS are implemented. 
 Support for other mechanisms may be added in the future. Only GSSAPI supports a QOP higher than auth.
 
+
+## Installation
+Gosasl can be installed with:
+```
+go get github.com/beltran/gosasl
+```
+
+To add kerberos support gohive requires header files to build against the GSSAPI C library. They can be installed with:
+- Ubuntu: `sudo apt-get install libkrb5-dev`
+- MacOS: `brew install homebrew/dupes/heimdal --without-x11`
+- Debian: `yum install -y krb5-devel`
+
+Then:
+```
+go get -tags kerberos github.com/beltran/gosasl
+```
+
 ## Example Usage
 
 ```go
