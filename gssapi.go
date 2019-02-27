@@ -86,9 +86,6 @@ func (m *GSSAPIMechanism) step(challenge []byte) ([]byte, error) {
 		qopBits := data[0]
 		data[0] = 0
 		m.serverMaxLength = int(binary.BigEndian.Uint32(data))
-		if m.serverMaxLength == 0 {
-			return nil, fmt.Errorf("The maximum packet length can't be zero. The server doesn't support GSSAPI")
-		}
 
 		m.qop, err = m.selectQop(qopBits)
 		// The client doesn't support or want any of the security layers offered by the server
