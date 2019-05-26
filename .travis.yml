@@ -1,3 +1,4 @@
+
 language: go
 
 go:
@@ -11,5 +12,6 @@ branches:
 
 script:
   - go fmt ./...
-  - go test -v -tags kerberos ./...
+  - go get github.com/beltran/gssapi
+  - go test -tags kerberos -v -run .
   - go test -v ./...
