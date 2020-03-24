@@ -1,2 +1,4 @@
 github.com/beltran/gssapi v0.0.0-20180807003338-598f9f3b2878 h1:3xXWpeNMPRcQlbGdyfIdBHh9eD5TQgMWlZlHZ2luTwo=
 github.com/beltran/gssapi v0.0.0-20180807003338-598f9f3b2878/go.mod h1:GLe4UoSyvJ3cVG+DVtKen5eAiaD8mAJFuV5PT3Eeg9Q=
+github.com/beltran/gssapi v0.0.0-20200324152954-d86554db4bab h1:ayfcn60tXOSYy5zUN1AMSTQo4nJCf7hrdzAVchpPst4=
+github.com/beltran/gssapi v0.0.0-20200324152954-d86554db4bab/go.mod h1:GLe4UoSyvJ3cVG+DVtKen5eAiaD8mAJFuV5PT3Eeg9Q=
