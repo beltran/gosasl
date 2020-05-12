@@ -239,10 +239,14 @@ func initClientContext(c *GSSAPIContext, service string, inputToken []byte) erro
 		_inputToken)
 	defer token.Release()
 
+	if err != nil {
+		return err
+	}
+
 	c.token = token.Bytes()
 	c.contextId = contextId
 	c.availFlags = outputRetFlags
-	return err
+	return nil
 }
 
 // Wrap calls GSS_Wrap
