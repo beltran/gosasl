@@ -55,7 +55,9 @@ func (m *GSSAPIMechanism) step(challenge []byte) ([]byte, error) {
 	} else if m.negotiationStage == 1 {
 		err := initClientContext(m.context, m.service+"/"+m.host, challenge)
 		if err != nil {
-			log.Fatal(err)
+			if err != gssapi.ErrContinueNeeded {
+				log.Fatal(err)
+			}
 			return nil, err
 		}
 
@@ -238,6 +240,10 @@ func initClientContext(c *GSSAPIContext, service string, inputToken []byte) erro
 		c.GSS_C_NO_CHANNEL_BINDINGS,
 		_inputToken)
 	defer token.Release()
+
+	if err != nil && err != gssapi.ErrContinueNeeded {
+		return err
+	}
 
 	c.token = token.Bytes()
 	c.contextId = contextId
