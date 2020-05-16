@@ -54,10 +54,8 @@ func (m *GSSAPIMechanism) step(challenge []byte) ([]byte, error) {
 
 	} else if m.negotiationStage == 1 {
 		err := initClientContext(m.context, m.service+"/"+m.host, challenge)
-		if err != nil {
-			if err != gssapi.ErrContinueNeeded {
-				log.Fatal(err)
-			}
+		if err != nil && err != gssapi.ErrContinueNeeded {
+			log.Fatal(err)
 			return nil, err
 		}
 
