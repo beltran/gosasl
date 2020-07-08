@@ -3,8 +3,12 @@ package gosasl
 import (
 	"crypto/hmac"
 	"crypto/md5"
+	"encoding/hex"
 	"fmt"
+	"math/rand"
 	"regexp"
+	"strconv"
+	"strings"
 )
 
 var (
@@ -171,6 +175,112 @@ func (m *CramMD5Mechanism) step(challenge []byte) ([]byte, error) {
 		return nil, err
 	}
 	return append([]byte(fmt.Sprintf("%s ", m.username)), hash.Sum(nil)...), nil
+}
+
+// DigestMD5Mechanism corresponds to Digest-MD5 mechanism
+type DigestMD5Mechanism struct {
+	mechanismConfig *MechanismConfig
+	identity        string
+	username        string
+	password        string
+	host            string
+	nonceCount      int
+}
+
+// NewDigestMD5Mechanism returns a new DigestMD5Mechanism
+func NewDigestMD5Mechanism(username string, password string) *DigestMD5Mechanism {
+	return &DigestMD5Mechanism{
+		mechanismConfig: newDefaultConfig("DIGEST-MD5"),
+		username:        username,
+		password:        password,
+	}
+}
+
+func (m *DigestMD5Mechanism) start() ([]byte, error) {
+	return m.step(nil)
+}
+
+func (m *DigestMD5Mechanism) step(challenge []byte) ([]byte, error) {
+	if challenge == nil {
+		return nil, nil
+	}
+
+	// Create map of challenge
+	entries := strings.Split(string(challenge), ",")
+	c := make(map[string]string)
+	for _, e := range entries {
+		parts := strings.SplitN(e, "=", 2)
+		c[parts[0]] = parts[1]
+	}
+
+	// Prepare response variables: trim quotes off of challenge values and generate cnonce
+	qop := strings.Trim(c["qop"], "\"")
+	realm := strings.Trim(c["realm"], "\"")
+	cnonce := strconv.FormatInt(rand.Int63(), 10)
+	nonce := strings.Trim(c["nonce"], "\"")
+	digestURI := "cerebro/" + m.host
+
+	// Create a1: HEX(H(H(username:realm:password):nonce:cnonce:authid))
+	x := m.username + ":" + realm + ":" + m.password
+	y := md5.Sum([]byte(x))
+	a1String := []string{
+		string(y[:]),
+		nonce,
+		cnonce,
+	}
+
+	if len(m.mechanismConfig.AuthorizationID) != 0 {
+		a1String = append(a1String, m.mechanismConfig.AuthorizationID)
+	}
+
+	h1 := md5.Sum([]byte(strings.Join(a1String, ":")))
+	a1 := hex.EncodeToString(h1[:])
+
+	// Create a2: HEX(H(AUTHENTICATE:digest-uri-value:00000000000000000000000000000000))
+	a2String := "AUTHENTICATE:" + digestURI
+
+	if qop != "auth" {
+		a2String += ":00000000000000000000000000000000"
+	}
+
+	h2 := md5.Sum([]byte(a2String))
+	a2 := hex.EncodeToString(h2[:])
+
+	// Set nonce count nc
+	m.nonceCount++
+	nc := fmt.Sprintf("%08x", m.nonceCount)
+
+	// Create response: H(a1:nonce:nc:cnonce:qop:a2)
+	r := a1 + ":" + nonce + ":" + nc + ":" + cnonce + ":" + qop + ":" + a2
+	hr := md5.Sum([]byte(r))
+
+	// Convert response to hex
+	response := make([]byte, hex.EncodedLen(len(hr)))
+	hex.Encode(response, hr[:])
+
+	// Create final response sent to server
+	resp := "qop=" + qop + ",realm=" + c["realm"] + ",username=" + strconv.Quote(m.username) + ",nonce=" + c["nonce"] +
+		",cnonce=" + strconv.Quote(cnonce) + ",nc=" + nc + ",digest-uri=" + strconv.Quote(digestURI) + ",response=" + string(response)
+
+	m.mechanismConfig.complete = true
+
+	return []byte(resp), nil
+}
+
+func (m *DigestMD5Mechanism) encode(outgoing []byte) ([]byte, error) {
+	return outgoing, nil
+}
+
+func (m *DigestMD5Mechanism) decode(incoming []byte) ([]byte, error) {
+	return incoming, nil
+}
+
+func (m *DigestMD5Mechanism) dispose() {
+	m.password = ""
+}
+
+func (m *DigestMD5Mechanism) getConfig() *MechanismConfig {
+	return m.mechanismConfig
 }
 
 // Client is the entry point for usage of this library
