@@ -180,15 +180,20 @@ func (m *CramMD5Mechanism) step(challenge []byte) ([]byte, error) {
 // DigestMD5Mechanism corresponds to PLAIN SASL mechanism
 type DigestMD5Mechanism struct {
 	mechanismConfig *MechanismConfig
+	service         string
 	identity        string
 	username        string
 	password        string
 	host            string
 	nonceCount      int
+	cnonce          string
+	nonce           string
+	keyHash         string
+	auth            string
 }
 
-// ParseChallenge turns the challenge string into a map
-func ParseChallenge(challenge []byte) map[string]string {
+// parseChallenge turns the challenge string into a map
+func parseChallenge(challenge []byte) map[string]string {
 	s := string(challenge)
 
 	c := make(map[string]string)
@@ -223,9 +228,10 @@ func ParseChallenge(challenge []byte) map[string]string {
 }
 
 // NewDigestMD5Mechanism returns a new PlainMechanism
-func NewDigestMD5Mechanism(username string, password string) *DigestMD5Mechanism {
+func NewDigestMD5Mechanism(service string, username string, password string) *DigestMD5Mechanism {
 	return &DigestMD5Mechanism{
 		mechanismConfig: newDefaultConfig("DIGEST-MD5"),
+		service:         service,
 		username:        username,
 		password:        password,
 	}
@@ -235,25 +241,40 @@ func (m *DigestMD5Mechanism) start() ([]byte, error) {
 	return m.step(nil)
 }
 
-func (m *DigestMD5Mechanism) step(challenge []byte) ([]byte, error) {
-	if challenge == nil {
-		return nil, nil
+var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+func randSeq(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
+}
+
+func (m *DigestMD5Mechanism) authenticate(digestUri string, challengeMap map[string]string) error {
+	a2String := ":" + digestUri
+
+	if m.auth != "auth" {
+		a2String += ":00000000000000000000000000000000"
 	}
 
-	// Create map of challenge
-	c := ParseChallenge(challenge)
+	if m.getHash(digestUri, a2String, challengeMap) != challengeMap["rspauth"] {
+		return fmt.Errorf("authenticate failed")
+	}
+	return nil
+}
 
-	// Prepare response variables
-	cnonce := strconv.FormatInt(rand.Int63(), 10)
-	digestURI := "cerebro/" + m.host
-
+func (m *DigestMD5Mechanism) getHash(digestUri string, a2String string, c map[string]string) string {
 	// Create a1: HEX(H(H(username:realm:password):nonce:cnonce:authid))
-	x := m.username + ":" + c["realm"] + ":" + m.password
-	y := md5.Sum([]byte(x))
+	if m.keyHash == "" {
+		x := m.username + ":" + c["realm"] + ":" + m.password
+		byteKeyHash := md5.Sum([]byte(x))
+		m.keyHash = string(byteKeyHash[:])
+	}
 	a1String := []string{
-		string(y[:]),
-		c["nonce"],
-		cnonce,
+		m.keyHash,
+		m.nonce,
+		m.cnonce,
 	}
 
 	if len(m.mechanismConfig.AuthorizationID) != 0 {
@@ -263,33 +284,56 @@ func (m *DigestMD5Mechanism) step(challenge []byte) ([]byte, error) {
 	h1 := md5.Sum([]byte(strings.Join(a1String, ":")))
 	a1 := hex.EncodeToString(h1[:])
 
-	// Create a2: HEX(H(AUTHENTICATE:digest-uri-value:00000000000000000000000000000000))
-	a2String := "AUTHENTICATE:" + digestURI
-
-	if c["qop"] != "auth" {
-		a2String += ":00000000000000000000000000000000"
-	}
-
 	h2 := md5.Sum([]byte(a2String))
 	a2 := hex.EncodeToString(h2[:])
 
 	// Set nonce count nc
-	m.nonceCount++
 	nc := fmt.Sprintf("%08x", m.nonceCount)
 
 	// Create response: H(a1:nonce:nc:cnonce:qop:a2)
-	r := a1 + ":" + c["nonce"] + ":" + nc + ":" + cnonce + ":" + c["qop"] + ":" + a2
+	r := strings.ToLower(a1) + ":" + m.nonce + ":" + nc + ":" + m.cnonce + ":" + m.auth + ":" + strings.ToLower(a2)
 	hr := md5.Sum([]byte(r))
 
 	// Convert response to hex
-	response := make([]byte, hex.EncodedLen(len(hr)))
-	hex.Encode(response, hr[:])
+	response := strings.ToLower(hex.EncodeToString(hr[:]))
+	return string(response)
 
+}
+
+func (m *DigestMD5Mechanism) step(challenge []byte) ([]byte, error) {
+	if challenge == nil {
+		return nil, nil
+	}
+
+	// Create map of challenge
+	c := parseChallenge(challenge)
+	digestUri := m.service + "/" + m.host
+
+	if _, ok := c["rspauth"]; ok {
+		m.mechanismConfig.complete = true
+		return nil, m.authenticate(digestUri, c)
+	}
+
+	// Prepare response variables
+	m.nonce = c["nonce"]
+	m.auth = c["qop"]
+	if m.nonceCount == 0 {
+		m.cnonce = randSeq(14)
+	}
+	m.cnonce = "OA6MHXh6VqTrRk"
+	m.nonceCount++
+
+	// Create a2: HEX(H(AUTHENTICATE:digest-uri-value:00000000000000000000000000000000))
+	a2String := "AUTHENTICATE:" + digestUri
+
+	if c["qop"] != "auth" {
+		a2String += ":00000000000000000000000000000000"
+	}
+	// Set nonce count nc
+	nc := fmt.Sprintf("%08x", m.nonceCount)
 	// Create final response sent to server
-	resp := "qop=" + c["qop"] + ",realm=" + strconv.Quote(c["realm"]) + ",username=" + strconv.Quote(m.username) + ",nonce=" + strconv.Quote(c["nonce"]) +
-		",cnonce=" + strconv.Quote(cnonce) + ",nc=" + nc + ",digest-uri=" + strconv.Quote(digestURI) + ",response=" + string(response)
-
-	m.mechanismConfig.complete = true
+	resp := "qop=" + c["qop"] + ",realm=" + strconv.Quote(c["realm"]) + ",username=" + strconv.Quote(m.username) + ",nonce=" + strconv.Quote(m.nonce) +
+		",cnonce=" + strconv.Quote(m.cnonce) + ",nc=" + nc + ",digest-uri=" + strconv.Quote(digestUri) + ",response=" + m.getHash(digestUri, a2String, c)
 
 	return []byte(resp), nil
 }
@@ -337,6 +381,10 @@ func NewSaslClient(host string, mechanism Mechanism) *Client {
 	mech, ok := mechanism.(*GSSAPIMechanism)
 	if ok {
 		mech.host = host
+	}
+	mechDigest, ok := mechanism.(*DigestMD5Mechanism)
+	if ok {
+		mechDigest.host = host
 	}
 	return &Client{
 		host:      host,
