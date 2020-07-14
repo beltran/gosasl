@@ -320,7 +320,6 @@ func (m *DigestMD5Mechanism) step(challenge []byte) ([]byte, error) {
 	if m.nonceCount == 0 {
 		m.cnonce = randSeq(14)
 	}
-	m.cnonce = "OA6MHXh6VqTrRk"
 	m.nonceCount++
 
 	// Create a2: HEX(H(AUTHENTICATE:digest-uri-value:00000000000000000000000000000000))
