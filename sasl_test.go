@@ -111,9 +111,6 @@ func TestDigestMD5Mechanism(t *testing.T) {
 
 	serverResponse := []byte("rspauth=ea40f60335c427b5527b84dbabcdfffd")
 	response, err = client.Step([]byte(serverResponse))
-	if err != nil {
-		t.Fatal(err)
-	}
 	if !client.Complete() {
 		t.Fatal("Challenge should have completed")
 	}
