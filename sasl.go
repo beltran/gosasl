@@ -325,14 +325,16 @@ func (m *DigestMD5Mechanism) step(challenge []byte) ([]byte, error) {
 	// Create a2: HEX(H(AUTHENTICATE:digest-uri-value:00000000000000000000000000000000))
 	a2String := "AUTHENTICATE:" + digestUri
 
-	if c["qop"] != "auth" {
+	maxBuf := ""
+	if c["qop"] != AUTH {
 		a2String += ":00000000000000000000000000000000"
+		maxBuf = ",maxbuf=16777215"
 	}
 	// Set nonce count nc
 	nc := fmt.Sprintf("%08x", m.nonceCount)
 	// Create final response sent to server
 	resp := "qop=" + c["qop"] + ",realm=" + strconv.Quote(c["realm"]) + ",username=" + strconv.Quote(m.username) + ",nonce=" + strconv.Quote(m.nonce) +
-		",cnonce=" + strconv.Quote(m.cnonce) + ",nc=" + nc + ",digest-uri=" + strconv.Quote(digestUri) + ",response=" + m.getHash(digestUri, a2String, c)
+		",cnonce=" + strconv.Quote(m.cnonce) + ",nc=" + nc + ",digest-uri=" + strconv.Quote(digestUri) + ",response=" + m.getHash(digestUri, a2String, c) + maxBuf
 
 	return []byte(resp), nil
 }
