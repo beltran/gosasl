@@ -6,10 +6,11 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"github.com/beltran/gssapi"
 	"log"
 	"os"
 	"sync"
+
+	"github.com/beltran/gssapi"
 )
 
 // GSSAPIMechanism corresponds to GSSAPI SASL mechanism
@@ -47,13 +48,22 @@ func (m *GSSAPIMechanism) start() ([]byte, error) {
 }
 
 func (m *GSSAPIMechanism) step(challenge []byte) ([]byte, error) {
+	var serviceHostQualified string
+	var fullServiceName string
+	serviceHostQualified = os.Getenv("SERVICE_HOST_QUALIFIED")
+	if len(serviceHostQualified) > 0 {
+		fullServiceName = m.service + "/" + ServiceHostQualified
+	} else {
+		fullServiceName = m.service + "/" + m.host
+	}
+
 	if m.negotiationStage == 0 {
-		err := initClientContext(m.context, m.service+"/"+m.host, nil)
+		err := initClientContext(m.context, fullServiceName, nil)
 		m.negotiationStage = 1
 		return m.context.token, err
 
 	} else if m.negotiationStage == 1 {
-		err := initClientContext(m.context, m.service+"/"+m.host, challenge)
+		err := initClientContext(m.context, fullServiceName, challenge)
 		if err != nil {
 			log.Fatal(err)
 			return nil, err
