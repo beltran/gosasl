@@ -50,6 +50,8 @@ func (m *GSSAPIMechanism) start() ([]byte, error) {
 func (m *GSSAPIMechanism) step(challenge []byte) ([]byte, error) {
 	var serviceHostQualified string
 	var fullServiceName string
+	// Allows to use a service principal designated for another host to still be used.
+	// Useful for containerized environments.
 	serviceHostQualified = os.Getenv("SERVICE_HOST_QUALIFIED")
 	if len(serviceHostQualified) > 0 {
 		fullServiceName = m.service + "/" + serviceHostQualified
