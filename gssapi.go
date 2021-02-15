@@ -52,7 +52,7 @@ func (m *GSSAPIMechanism) step(challenge []byte) ([]byte, error) {
 	var fullServiceName string
 	serviceHostQualified = os.Getenv("SERVICE_HOST_QUALIFIED")
 	if len(serviceHostQualified) > 0 {
-		fullServiceName = m.service + "/" + ServiceHostQualified
+		fullServiceName = m.service + "/" + serviceHostQualified
 	} else {
 		fullServiceName = m.service + "/" + m.host
 	}
