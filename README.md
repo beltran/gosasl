@@ -12,7 +12,7 @@ Gosasl can be installed with:
 go get github.com/beltran/gosasl
 ```
 
-To add kerberos support gohive requires header files to build against the GSSAPI C library. They can be installed with:
+To add kerberos support gosasl requires header files to build against the GSSAPI C library. They can be installed with:
 - Ubuntu: `sudo apt-get install libkrb5-dev`
 - MacOS: `brew install homebrew/dupes/heimdal --without-x11`
 - Debian: `yum install -y krb5-devel`
