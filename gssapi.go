@@ -240,6 +240,7 @@ func initClientContext(c *GSSAPIContext, service string, inputToken []byte) erro
 	preparedName := prepareServiceName(c)
 	defer preparedName.Release()
 
+	// Error is purposedly ignored.
 	contextId, _, token, outputRetFlags, _, err := c.InitSecContext(
 		nil,
 		c.contextId,
