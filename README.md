@@ -62,4 +62,4 @@ go get -tags kerberos github.com/beltran/gosasl
 ```
 
 
-This library is inspired by [pure-sasl](https://github.com/thobbs/pure-sasl)
+This library is inspired by [pure-sasl](https://github.com/thobbs/pure-sasl).
