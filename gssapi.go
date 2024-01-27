@@ -61,13 +61,15 @@ func (m *GSSAPIMechanism) step(challenge []byte) ([]byte, error) {
 
 	if m.negotiationStage == 0 {
 		err := initClientContext(m.context, fullServiceName, nil)
+		if err == gssapi.ErrContinueNeeded {
+			err = nil
+		}
 		m.negotiationStage = 1
 		return m.context.token, err
 
 	} else if m.negotiationStage == 1 {
 		err := initClientContext(m.context, fullServiceName, challenge)
-		if err != nil {
-			log.Fatal(err)
+		if err != nil && err != gssapi.ErrContinueNeeded {
 			return nil, err
 		}
 
@@ -255,7 +257,7 @@ func initClientContext(c *GSSAPIContext, service string, inputToken []byte) erro
 	c.token = token.Bytes()
 	c.contextId = contextId
 	c.availFlags = outputRetFlags
-	return nil
+	return err
 }
 
 // Wrap calls GSS_Wrap
