@@ -1,6 +1,6 @@
 # Go SASL library
 
-[![Build Status](https://api.travis-ci.com/beltran/gosasl.svg?branch=master)](https://travis-ci.com/beltran/gosasl)
+[![Build Status](https://app.travis-ci.com/beltran/gosasl.svg?branch=master)](https://app.travis-ci.com/beltran/gosasl)
 
 gosasl is a library for different SASL mechanisms. Currently GSSAPI, DIGEST-MD5, PLAIN and ANONYMOUS are implemented. 
 Support for other mechanisms may be added in the future. Only GSSAPI supports a QOP higher than auth.
