@@ -1,5 +1,6 @@
 
 language: go
+dist: jammy # Ubuntu 22.04 LTS
 
 go:
   - "1.23.0"
